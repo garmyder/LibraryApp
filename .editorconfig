@@ -1,0 +1,27 @@
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csx,cake}]
+indent_style = space
+indent_size = 4
+
+[*.{json,xml,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.cs]
+# Code style settings (what type of validation to use)
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+
+# C# language - using var
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+
+# Organization of usings (alphabetical sorting, system first)
+dotnet_sort_system_directives_first = true

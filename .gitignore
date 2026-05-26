@@ -1,0 +1,50 @@
+## User-specific files
+*.rsuser
+*.suo
+*.user
+*.usermd
+*.usertasks
+*.sln.docstates
+
+## Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Xx]64/
+[Xx]86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bbin/
+bin/
+obj/
+x64/
+x86/
+
+## Visual Studio cache and settings
+.vs/
+Minidump.mdmp
+
+## JetBrains Rider / Resharper
+.idea/
+*.sln.iml
+
+## Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+## NuGet Packages
+*.nupkg
+# Include obj folder python build for standard .NET templates
+**/[Pp]ackages/*
+!**/[Pp]ackages/repositories.config
+**/[Pp]ackages/:Zone.Identifier
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## OS-generated files
+.DS_Store
+Thumbs.db
