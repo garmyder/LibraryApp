@@ -8,6 +8,5 @@
         <converters:StarRatingConverter      x:Key="StarRating"      />
         <converters:BoolToStarBrushConverter x:Key="BoolToStarBrush" />
         <converters:GroupIsCheckedConverter  x:Key="GroupIsChecked"  />
-        <converters:NullToCollapsedConverter  x:Key="NullToCollapsed"  />
     </Application.Resources>
 </Application>

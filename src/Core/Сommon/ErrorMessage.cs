@@ -1,4 +1,4 @@
-﻿namespace LibraryApp.Core.Common;
+﻿namespace LibraryApp.Core.Сommon;
 
 public abstract record ErrorMessage
 {

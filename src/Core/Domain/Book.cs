@@ -31,7 +31,7 @@ public sealed class Book : ILibraryItem
     public string Name => Title;
     public LibraryItemType Type => LibraryItemType.Book;
     public string? FileHash { get; private set; }
-    
+
     /// <summary>Required by EF Core.</summary>
     private Book() { }
 
@@ -68,6 +68,7 @@ public sealed class Book : ILibraryItem
             ".epub" => BookFormat.Epub,
             ".pdf"  => BookFormat.Pdf,
             ".mobi" => BookFormat.Mobi,
+            ".azw3" => BookFormat.Azw3,
             var ext => throw new NotSupportedException($"Format '{ext}' is not supported.")
         };
 
@@ -80,12 +81,12 @@ public sealed class Book : ILibraryItem
             throw new ArgumentOutOfRangeException(nameof(rate));
         Rate = rate;
     }
-    
+
     public void ClearRate()
     {
         Rate = null;
     }
-    
+
     /// <summary>Updates mutable metadata after a re-scan detects file changes.</summary>
     public void UpdateFromScan(
         string title, string? annotation, string? published, string fileHash)

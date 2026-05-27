@@ -60,6 +60,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(BookDetail));
         SetRateCommand.NotifyCanExecuteChanged();
+        DeleteSelectedCommand.NotifyCanExecuteChanged();
+        ToggleReadCommand.NotifyCanExecuteChanged();
     }
     private void OnBookSelectionChanged()
     {
@@ -73,7 +75,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         DeleteSelectedCommand.NotifyCanExecuteChanged();
         ToggleReadCommand.NotifyCanExecuteChanged();
     }
-    
+
     // ── Status bar ────────────────────────────────────────────────────────
     [ObservableProperty] private string _statusText   = "Ready";
     [ObservableProperty] private string _itemCountText = "0 books";
@@ -96,19 +98,6 @@ public sealed partial class MainWindowViewModel : ObservableObject
             (string.IsNullOrWhiteSpace(AuthorFilter) ||
              a.Name.Contains(AuthorFilter, StringComparison.OrdinalIgnoreCase));
 
-        // BooksView = CollectionViewSource.GetDefaultView(_books);
-        //
-        // BooksView.SortDescriptions.Add(
-        //     new SortDescription(nameof(BookFlatItemVm.SeriesDisplayName), ListSortDirection.Ascending));
-        // BooksView.SortDescriptions.Add(
-        //     new SortDescription(nameof(BookFlatItemVm.SeriesNumber), ListSortDirection.Ascending));
-        // BooksView.SortDescriptions.Add(
-        //     new SortDescription(nameof(BookFlatItemVm.Title), ListSortDirection.Ascending));
-        // BooksView.GroupDescriptions.Add(
-        //     new PropertyGroupDescription(nameof(BookFlatItemVm.AuthorName)));      // outer: author
-        // BooksView.GroupDescriptions.Add(
-        //     new PropertyGroupDescription(nameof(BookFlatItemVm.SeriesDisplayName))); // inner: series
-        
         BooksView = CollectionViewSource.GetDefaultView(_books);
 
         // Sort order must match group order
@@ -127,7 +116,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>Returns IDs of all checked books across all series groups.</summary>
     private IReadOnlyList<long> GetSelectedBookIds() =>
         _books.Where(b => b.IsSelected).Select(b => b.BookId).ToList();
-    
+
     private void UpdateAllBooksChecked()
     {
         if (!_books.Any()) { AllBooksChecked = false; return; }
@@ -135,7 +124,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             : _books.All(b => !b.IsSelected)  ? false
             : null;
     }
-    
+
     // ── Commands ──────────────────────────────────────────────────────────
 
     [RelayCommand]
@@ -169,7 +158,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             StatusText = $"Done: {report.Added} added, {report.Updated} updated, " +
                          $"{report.Skipped} skipped, {report.Removed} removed" +
                          (report.Failed > 0 ? $", {report.Failed} failed" : string.Empty);
-            
+
             await LoadAuthorsAsync(ct);
         }
         catch (OperationCanceledException)
@@ -187,11 +176,23 @@ public sealed partial class MainWindowViewModel : ObservableObject
             IsImporting = false;
         }
     }
-    
+
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private async Task DeleteSelectedAsync(CancellationToken ct)
+    private async Task DeleteSelectedAsync(BookFlatItemVm? targetBook, CancellationToken ct)
     {
-        var ids = GetSelectedBookIds();
+        List<long> ids;
+
+        // If the command was called from the context menu of a specific book
+        if (targetBook is not null)
+        {
+            ids = [targetBook.BookId];
+        }
+        else // If called in general (for example, with a button when checkboxes are checked)
+        {
+            ids = GetSelectedBookIds().ToList();
+        }
+
+        if (ids.Count == 0) return;
 
         var confirm = MessageBox.Show(
             $"Delete {ids.Count} book(s)?",
@@ -208,13 +209,25 @@ public sealed partial class MainWindowViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private async Task ToggleReadAsync(CancellationToken ct)
+    private async Task ToggleReadAsync(BookFlatItemVm? targetBook, CancellationToken ct)
     {
-        var selected = _books.Where(b => b.IsSelected).ToList();
-        var ids      = selected.Select(b => b.BookId).ToList();
+        List<BookFlatItemVm> targetBooks;
 
-        // If all selected are read → unread; otherwise → read
-        bool markAsRead = !selected.All(b => b.Read);
+        if (targetBook is not null)
+        {
+            targetBooks = [targetBook];
+        }
+        else
+        {
+            targetBooks = _books.Where(b => b.IsSelected).ToList();
+        }
+
+        if (targetBooks.Count == 0) return;
+
+        var ids = targetBooks.Select(b => b.BookId).ToList();
+
+        // If all the target books are read → make them unread, otherwise → read
+        bool markAsRead = !targetBooks.All(b => b.Read);
 
         if (markAsRead)
             await _mediator.Send(new MarkAsReadCommand(ids), ct);
@@ -243,7 +256,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>
     /// Overload for XAML bindings where CommandParameter comes as string.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(HasSingleSelection))]
+    [RelayCommand]
     private async Task SetRateFromStringAsync(string? rateStr, CancellationToken ct = default)
     {
         if (int.TryParse(rateStr, out int rate) && rate is >= 1 and <= 5)
@@ -255,10 +268,11 @@ public sealed partial class MainWindowViewModel : ObservableObject
             StatusText = $"Invalid rating value: {rateStr}";
         }
     }
+
     /// <summary>
     /// Clear rating.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(HasSingleSelection))]
+    [RelayCommand]
     private async Task ClearRateAsync(CancellationToken ct)
     {
         if (SelectedBook is null) return;
@@ -266,8 +280,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         StatusText = "Rating cleared.";
         await LoadBooksByAuthorAsync(SelectedAuthor);
     }
-    
-    private bool HasSelection()      => GetSelectedBookIds().Count > 0;
+
+    private bool HasSelection() => GetSelectedBookIds().Count > 0 || SelectedBook is not null;
     private bool HasSingleSelection() => SelectedBook is not null;
 
     /// <summary>Toggles selection for all books in a DataGrid group.</summary>
@@ -285,8 +299,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _isSyncing = false;
 
         NotifySelectionChanged();
-    }   
-    
+    }
+
     [RelayCommand]
     private void ToggleAllBooks()
     {
@@ -302,40 +316,50 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
     private async Task LoadBooksByAuthorAsync(AuthorListItemVm? author)
     {
-        _books.Clear();
-        SelectedBook = null;
-        AllBooksChecked = false;
-
         if (author is null)
         {
-            ItemCountText = "0 books";
+            _books.Clear();
+            SelectedBook    = null;
+            AllBooksChecked = false;
+            ItemCountText   = "0 books";
             return;
         }
 
-        var books = await _mediator.Send(new GetBooksByAuthorQuery(author.AuthorId));
+        var dtos     = await _mediator.Send(new GetBooksByAuthorQuery(author.AuthorId));
+        var incoming = dtos.ToDictionary(d => d.BookId);
+        var existing = _books.ToDictionary(b => b.BookId);
 
-        foreach (var dto in books)
+        // Remove books no longer present
+        foreach (var id in existing.Keys.Except(incoming.Keys).ToList())
+            _books.Remove(existing[id]);
+
+        // Update existing or add new — preserves expander/cursor state
+        foreach (var dto in dtos)
         {
-            var vm = new BookFlatItemVm(dto)
-            {
-                AuthorName       = author.Name,          // ← links book to outer group
-                SelectionChanged = OnBookSelectionChanged
-            };
-            _books.Add(vm);
+            if (existing.TryGetValue(dto.BookId, out var vm))
+                vm.UpdateFrom(dto);
+            else
+                _books.Add(new BookFlatItemVm(dto)
+                {
+                    AuthorName       = author.Name,
+                    SelectionChanged = OnBookSelectionChanged
+                });
         }
 
         UpdateAllBooksChecked();
-        ItemCountText = $"{books.Count} books";          // ← fix: author's count, not total
-        StatusText    = $"{books.Count} books by {author.Name}";
+        ItemCountText = $"{dtos.Count} books";
+        StatusText    = $"{dtos.Count} books by {author.Name}";
+
+        OnPropertyChanged(nameof(BookDetail));
     }
-    
+
     private static string BuildDetail(BookFlatItemVm vm)
     {
         var sb = new StringBuilder();
         sb.AppendLine(vm.Title);
         if (vm.Genre      is not null) sb.AppendLine($"Genre:      {vm.Genre}");
         if (vm.Language   is not null) sb.AppendLine($"Language:   {vm.Language}");
-        sb.AppendLine($"Format:     {vm.Format}");
+        sb.AppendLine($"Format:     {vm.Format.ToString().ToLower()}");
         sb.AppendLine(vm.Read ? "✓ Read" : "○ Unread");
         if (vm.Rate.HasValue)
             sb.AppendLine($"Rating:     {"★".PadRight(vm.Rate.Value, '★').PadRight(5, '☆')}");
@@ -346,5 +370,4 @@ public sealed partial class MainWindowViewModel : ObservableObject
         }
         return sb.ToString().TrimEnd();
     }
-    
 }
