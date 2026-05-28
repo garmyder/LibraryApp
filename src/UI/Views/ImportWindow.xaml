@@ -35,7 +35,7 @@
                            Width="52" VerticalAlignment="Center" />
                     <Button DockPanel.Dock="Right" Content="Browse…"
                             Command="{Binding BrowseFolderCommand}"
-                            Width="80" Margin="4,0,0,0"
+                            Width="80" Margin="4,0,0,0" Height="20"
                             IsEnabled="{Binding IsNotBusy}" />
                     <TextBox Text="{Binding FolderPath, Mode=OneWay}"
                              IsReadOnly="True" VerticalAlignment="Center" />
@@ -56,9 +56,9 @@
                 <!-- Action buttons -->
                 <StackPanel Grid.Row="2" Orientation="Horizontal"
                             Margin="52,0,0,10">
-                    <Button Content="▶ Start Import"
+                    <Button Content="▶ Import"
                             Command="{Binding StartImportCommand}"
-                            MinWidth="110" Margin="0,0,8,0" />
+                            MinWidth="80" Margin="0,0,8,0" />
                     <Button Content="⏹ Cancel"
                             Command="{Binding CancelImportCommand}"
                             MinWidth="80" />
@@ -85,7 +85,7 @@
                     Grid.Row="5"
                     SegmentsSource="{Binding Segments}"
                     Total="{Binding TotalBooks}"
-                    Height="24" Margin="0,0,0,4"
+                    Height="50" Margin="0,0,0,4"
                     Visibility="{Binding ShowProgressBar,
                         Converter={StaticResource BoolToVisibility}}" />
 
@@ -109,10 +109,10 @@
                         <TextBlock Text="Import Summary"
                                    FontWeight="SemiBold" Margin="0,0,0,8" />
                         <UniformGrid Rows="2" Columns="4" HorizontalAlignment="Left">
-                            <TextBlock Text="Added"   Foreground="Gray" FontSize="11" />
-                            <TextBlock Text="Updated" Foreground="Gray" FontSize="11" />
-                            <TextBlock Text="Skipped" Foreground="Gray" FontSize="11" />
-                            <TextBlock Text="Failed"  Foreground="Gray" FontSize="11" />
+                            <TextBlock Text="Added"   Foreground="Gray" FontSize="11" Margin="0,0,0,0"/>
+                            <TextBlock Text="Updated" Foreground="Gray" FontSize="11" Margin="0,0,10,0"/>
+                            <TextBlock Text="Skipped" Foreground="Gray" FontSize="11" Margin="0,0,0,0"/>
+                            <TextBlock Text="Failed"  Foreground="Gray" FontSize="11" Margin="0,0,0,0"/>
                             <TextBlock Text="{Binding Report.Added}"
                                        FontSize="22" FontWeight="Bold" Foreground="#4CAF50" />
                             <TextBlock Text="{Binding Report.Updated}"
