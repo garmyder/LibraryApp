@@ -1,6 +1,4 @@
-﻿// Infrastructure/Scanning/ZipArchiveScanner.cs
-
-using System.IO;
+﻿using System.IO;
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -14,7 +12,7 @@ internal sealed class ZipArchiveScanner(IEncodingDetector encodingDetector) : IA
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
-    
+
     private static readonly HashSet<string> SupportedEntryExtensions =
         new([".fb2", ".epub", ".pdf", ".mobi"], StringComparer.OrdinalIgnoreCase);
 
@@ -25,10 +23,9 @@ internal sealed class ZipArchiveScanner(IEncodingDetector encodingDetector) : IA
         string archivePath,
         [EnumeratorCancellation] CancellationToken ct)
     {
-        // Detect encoding from the zip file itself
         var nameEncoding = encodingDetector.DetectFile(archivePath);
-        
-        using var zip = new ZipArchive(
+
+        await using var zip = new ZipArchive(
             File.OpenRead(archivePath),
             ZipArchiveMode.Read,
             leaveOpen: false,
@@ -37,17 +34,35 @@ internal sealed class ZipArchiveScanner(IEncodingDetector encodingDetector) : IA
         foreach (var entry in zip.Entries)
         {
             ct.ThrowIfCancellationRequested();
-
             if (!SupportedEntryExtensions.Contains(Path.GetExtension(entry.Name))) continue;
             if (entry.Length == 0) continue;
 
-            // Buffer into MemoryStream — ZipArchive must stay open while reading entries
             var ms = new MemoryStream((int)Math.Min(entry.Length, int.MaxValue));
-            await using (var entryStream = entry.Open())
+            await using (var entryStream = await entry.OpenAsync(ct))
                 await entryStream.CopyToAsync(ms, ct);
 
             ms.Seek(0, SeekOrigin.Begin);
             yield return new ArchivedBook(entry.FullName, ms, entry.Length);
         }
+    }
+
+    /// <inheritdoc />
+    public Task<int> CountEntriesAsync(string archivePath, CancellationToken ct = default)
+    {
+        var nameEncoding = encodingDetector.DetectFile(archivePath);
+
+        using var zip = new ZipArchive(
+            File.OpenRead(archivePath),
+            ZipArchiveMode.Read,
+            leaveOpen: false,
+            entryNameEncoding: nameEncoding);
+
+        var count = zip.Entries.Count(e =>
+        {
+            ct.ThrowIfCancellationRequested();
+            return SupportedEntryExtensions.Contains(Path.GetExtension(e.Name)) && e.Length > 0;
+        });
+
+        return Task.FromResult(count);
     }
 }

@@ -6,9 +6,9 @@ using LibraryApp.Core.Interfaces;
 namespace LibraryApp.Infrastructure.Scanning;
 
 internal sealed class BookScanner(
-    IEnumerable<IMetadataParser>  parsers,
-    IEnumerable<IArchiveScanner>  archiveScanners,
-    IFileHasher                   hasher) : IBookScanner
+    IEnumerable<IMetadataParser> parsers,
+    IEnumerable<IArchiveScanner> archiveScanners,
+    IFileHasher hasher) : IBookScanner
 {
     private static readonly HashSet<string> BookExtensions = BookFormatExtensions.SupportedExtensions;
 
@@ -24,12 +24,9 @@ internal sealed class BookScanner(
             ? SearchOption.AllDirectories
             : SearchOption.TopDirectoryOnly;
 
-        var allFiles = Directory.EnumerateFiles(directoryPath, "*.*", searchOption);
-
-        foreach (var filePath in allFiles)
+        foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*.*", searchOption))
         {
             ct.ThrowIfCancellationRequested();
-
             var ext = Path.GetExtension(filePath);
 
             if (BookExtensions.Contains(ext))
@@ -38,15 +35,50 @@ internal sealed class BookScanner(
                 continue;
             }
 
-            if (ArchiveExtensions.Contains(ext))
-            {
-                var scanner = archiveScanners.FirstOrDefault(s => s.CanHandle(filePath));
-                if (scanner is null) continue;
+            if (!ArchiveExtensions.Contains(ext)) continue;
 
-                await foreach (var scanned in ScanArchiveAsync(filePath, scanner, ct))
-                    yield return scanned;
-            }
+            var scanner = archiveScanners.FirstOrDefault(s => s.CanHandle(filePath));
+            if (scanner is null) continue;
+
+            await foreach (var scanned in ScanArchiveAsync(filePath, scanner, ct))
+                yield return scanned;
         }
+    }
+
+    /// <inheritdoc />
+    public async Task<int> CountAsync(
+        string directoryPath,
+        ScanOptions options,
+        IProgress<int>? progress = null,
+        CancellationToken ct = default)
+    {
+        var searchOption = options.Recursive
+            ? SearchOption.AllDirectories
+            : SearchOption.TopDirectoryOnly;
+
+        var total = 0;
+
+        foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*.*", searchOption))
+        {
+            ct.ThrowIfCancellationRequested();
+            var ext = Path.GetExtension(filePath);
+
+            if (BookExtensions.Contains(ext))
+            {
+                progress?.Report(++total);
+                continue;
+            }
+
+            if (!ArchiveExtensions.Contains(ext)) continue;
+
+            var scanner = archiveScanners.FirstOrDefault(s => s.CanHandle(filePath));
+            if (scanner is null) continue;
+
+            total += await scanner.CountEntriesAsync(filePath, ct);
+            progress?.Report(total);
+        }
+
+        return total;
     }
 
     // ── Direct file ───────────────────────────────────────────────────────
@@ -56,9 +88,9 @@ internal sealed class BookScanner(
         try
         {
             var parser = FindParser(filePath)
-                ?? throw new NotSupportedException($"No parser for '{Path.GetExtension(filePath)}'.");
+                         ?? throw new NotSupportedException($"No parser for '{Path.GetExtension(filePath)}'.");
 
-            var hash     = await hasher.ComputeHashAsync(filePath, ct);
+            var hash = await hasher.ComputeHashAsync(filePath, ct);
             var fileSize = new FileInfo(filePath).Length;
             var metadata = await parser.ParseAsync(filePath, ct);
 
@@ -87,21 +119,20 @@ internal sealed class BookScanner(
     private async Task<ScannedFile> ScanArchivedBookAsync(
         string archivePath, ArchivedBook archived, CancellationToken ct)
     {
-        var ext    = Path.GetExtension(archived.OriginalName);
+        var ext = Path.GetExtension(archived.OriginalName);
         var parser = FindParser(ext);
 
         if (parser is null)
             return ErrorFile(archivePath, $"No parser for '{ext}' inside archive.");
 
-        // Write to temp file — parsers expect a real path (XML readers, etc.)
         var tempPath = Path.ChangeExtension(Path.GetTempFileName(), ext);
         try
         {
             await using (var fs = File.Create(tempPath))
                 await archived.Content.CopyToAsync(fs, ct);
 
-            var hash        = await hasher.ComputeHashAsync(tempPath, ct);
-            var metadata    = await parser.ParseAsync(tempPath, ct);
+            var hash = await hasher.ComputeHashAsync(tempPath, ct);
+            var metadata = await parser.ParseAsync(tempPath, ct);
             var virtualPath = BuildVirtualPath(archivePath, archived.OriginalName);
 
             return new ScannedFile(virtualPath, hash, archived.SizeBytes, metadata, Error: null);
@@ -125,7 +156,7 @@ internal sealed class BookScanner(
     }
 
     /// <summary>Builds a virtual path used as the stable book identifier in DB.</summary>
-    internal static string BuildVirtualPath(string archivePath, string entryName) =>
+    private static string BuildVirtualPath(string archivePath, string entryName) =>
         $"{archivePath}::{entryName}";
 
     private static ScannedFile ErrorFile(string path, string error) =>

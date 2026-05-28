@@ -7,19 +7,19 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LibraryApp.Application.Authors.Queries.GetAllAuthors;
 using LibraryApp.Application.Books.Commands.DeleteBooks;
-using LibraryApp.Application.Books.Commands.ToggleRead;
 using LibraryApp.Application.Books.Commands.SetRate;
+using LibraryApp.Application.Books.Commands.ToggleRead;
 using LibraryApp.Application.Books.Queries.GetBooksByAuthor;
-using LibraryApp.Core.Interfaces;
+using LibraryApp.UI.Views;
 using MediatR;
-using Microsoft.Win32;
 
 namespace LibraryApp.UI.ViewModels;
 
 public sealed partial class MainWindowViewModel : ObservableObject
 {
     private readonly IMediator       _mediator;
-    private readonly IImportService  _importService;
+    private readonly Func<ImportWindow> _importWindowFactory;
+
     [ObservableProperty]
     private bool? _allBooksChecked = false;
 
@@ -87,10 +87,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         : BuildDetail(SelectedBook);
 
     // ─────────────────────────────────────────────────────────────────────
-    public MainWindowViewModel(IMediator mediator, IImportService importService)
+    public MainWindowViewModel(IMediator mediator, Func<ImportWindow> importWindowFactory)
     {
         _mediator      = mediator;
-        _importService = importService;
+        _importWindowFactory = importWindowFactory;
 
         AuthorsView = CollectionViewSource.GetDefaultView(_authors);
         AuthorsView.Filter = o =>
@@ -144,36 +144,15 @@ public sealed partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenLibraryAsync(CancellationToken ct = default)
     {
-        var dialog = new OpenFolderDialog { Title = "Select Library Folder" };
-        if (dialog.ShowDialog() != true) return;
+        var window = _importWindowFactory();
+        window.Owner = System.Windows.Application.Current.MainWindow;
 
-        IsImporting = true;
-        StatusText  = "Importing…";
-
-        try
+        // ShowDialog() blocks until user closes the import window.
+        // Returns true only when import completed successfully.
+        if (window.ShowDialog() == true)
         {
-            var report = await _importService.ImportAsync(
-                dialog.FolderName, new ScanOptions(), ct);
-
-            StatusText = $"Done: {report.Added} added, {report.Updated} updated, " +
-                         $"{report.Skipped} skipped, {report.Removed} removed" +
-                         (report.Failed > 0 ? $", {report.Failed} failed" : string.Empty);
-
+            StatusText = "Refreshing library…";
             await LoadAuthorsAsync(ct);
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText = "Import cancelled.";
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Import failed: {ex.Message}";
-            MessageBox.Show(ex.Message, "Import Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-        finally
-        {
-            IsImporting = false;
         }
     }
 
@@ -359,15 +338,13 @@ public sealed partial class MainWindowViewModel : ObservableObject
         sb.AppendLine(vm.Title);
         if (vm.Genre      is not null) sb.AppendLine($"Genre:      {vm.Genre}");
         if (vm.Language   is not null) sb.AppendLine($"Language:   {vm.Language}");
-        sb.AppendLine($"Format:     {vm.Format.ToString().ToLower()}");
+        sb.AppendLine($"Format:     {vm.Format}");
         sb.AppendLine(vm.Read ? "✓ Read" : "○ Unread");
         if (vm.Rate.HasValue)
             sb.AppendLine($"Rating:     {"★".PadRight(vm.Rate.Value, '★').PadRight(5, '☆')}");
-        if (vm.Annotation is not null)
-        {
-            sb.AppendLine();
-            sb.Append(vm.Annotation);
-        }
+        if (vm.Annotation is null) return sb.ToString().TrimEnd();
+        sb.AppendLine();
+        sb.Append(vm.Annotation);
         return sb.ToString().TrimEnd();
     }
 }

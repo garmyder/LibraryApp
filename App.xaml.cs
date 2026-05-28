@@ -1,12 +1,12 @@
-﻿// App.xaml.cs
-using LibraryApp.Infrastructure;
+﻿using LibraryApp.Infrastructure;
+using LibraryApp.UI.ViewModels;
 using LibraryApp.UI.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 using System.Windows;
 using LibraryApp.Application;
 using LibraryApp.Infrastructure.Data;
-using LibraryApp.UI.ViewModels;
-using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 namespace LibraryApp;
 
@@ -16,6 +16,14 @@ public partial class App
 
     public App()
     {
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.File(
+                path: "logs/import.log",
+                rollingInterval: RollingInterval.Infinite,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .CreateLogger();
+
         _serviceProvider = ConfigureServices().BuildServiceProvider();
     }
 
@@ -23,11 +31,20 @@ public partial class App
     private static IServiceCollection ConfigureServices()
     {
         var services = new ServiceCollection();
-        services.AddLogging();
+
+        services.AddLogging(b => b.AddSerilog(dispose: true));
         services.AddInfrastructure("Data Source=library.db");
         services.AddApplication();
+
+        // Main window
         services.AddTransient<MainWindow>();
         services.AddTransient<MainWindowViewModel>();
+
+        // Import window — factory allows creating a fresh instance per import session
+        services.AddTransient<ImportWindow>();
+        services.AddTransient<ImportWindowViewModel>();
+        services.AddSingleton<Func<ImportWindow>>(sp => sp.GetRequiredService<ImportWindow>);
+
         return services;
     }
 
@@ -35,7 +52,6 @@ public partial class App
     {
         base.OnStartup(e);
 
-        // Ensure DB is created and all migrations are applied
         using (var scope = _serviceProvider.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<LibraryDbContext>();

@@ -20,20 +20,18 @@ public partial class MainWindow : Window
 
     private void DataGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is DataGridRow row)
-        {
-            row.IsSelected = true;
-            row.Focus();
-        }
+        if (sender is not DataGridRow row) return;
+
+        row.IsSelected = true;
+        row.Focus();
     }
 
     private void BooksDataGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        if (DataContext is MainWindowViewModel vm)
-        {
-            // Force commands to check the HasSelection() method
-            vm.DeleteSelectedCommand.NotifyCanExecuteChanged();
-            vm.ToggleReadCommand.NotifyCanExecuteChanged();
-        }
+        if (DataContext is not MainWindowViewModel vm) return;
+
+        // Force commands to check the HasSelection() method
+        vm.DeleteSelectedCommand.NotifyCanExecuteChanged();
+        vm.ToggleReadCommand.NotifyCanExecuteChanged();
     }
 }

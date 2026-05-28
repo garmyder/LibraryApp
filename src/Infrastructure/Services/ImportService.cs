@@ -8,20 +8,58 @@ using Microsoft.Extensions.Logging;
 namespace LibraryApp.Infrastructure.Services;
 
 internal sealed class ImportService(
-    IBookScanner scanner,
-    LibraryDbContext db,
+    IBookScanner           scanner,
+    LibraryDbContext       db,
     ILogger<ImportService> logger) : IImportService
 {
     public async Task<ImportReport> ImportAsync(
-        string directoryPath, ScanOptions options, CancellationToken ct = default)
+        string                          directoryPath,
+        ScanOptions                     options,
+        IProgress<ImportProgressEvent>? progress = null,
+        CancellationToken               ct       = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        try
+        {
+            var report = await ExecuteImportAsync(directoryPath, options, progress, ct);
+            await transaction.CommitAsync(ct);
+
+            logger.LogInformation(
+                "Import committed - added: {Added}, updated: {Updated}, skipped: {Skipped}, " +
+                "removed: {Removed}, failed: {Failed}",
+                report.Added, report.Updated, report.Skipped, report.Removed, report.Failed);
+
+            return report;
+        }
+        catch (OperationCanceledException)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            logger.LogWarning("Import cancelled - all changes rolled back.");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            logger.LogError(ex, "Import failed - all changes rolled back.");
+            throw;
+        }
+    }
+
+    // ── Core logic ────────────────────────────────────────────────────────
+
+    private async Task<ImportReport> ExecuteImportAsync(
+        string                          directoryPath,
+        ScanOptions                     options,
+        IProgress<ImportProgressEvent>? progress,
+        CancellationToken               ct)
     {
         int added = 0, updated = 0, skipped = 0, failed = 0, removed = 0;
         var errors = new List<string>();
 
-        // Pre-load lookup caches to minimise DB round-trips
-        var hashIndex  = await db.Books.Where(b => b.FileHash != null)
-                                       .ToDictionaryAsync(b => b.FileHash!, ct);
-        var pathIndex  = await db.Books.ToDictionaryAsync(b => b.FilePath, ct);
+        var hashIndex   = await db.Books.Where(b => b.FileHash != null)
+                                        .ToDictionaryAsync(b => b.FileHash!, ct);
+        var pathIndex   = await db.Books.ToDictionaryAsync(b => b.FilePath, ct);
         var authorCache = new AuthorCache(db);
         var lookupCache = new LookupCache(db);
 
@@ -32,31 +70,37 @@ internal sealed class ImportService(
                 failed++;
                 errors.Add($"{file.FilePath}: {file.Error}");
                 logger.LogWarning("Parse error for {File}: {Error}", file.FilePath, file.Error);
+                progress?.Report(new ImportProgressEvent(
+                    ImportStatus.Failed, file.FilePath, null, null, file.Error));
                 continue;
             }
 
-            var meta = file.Metadata!;
+            var meta       = file.Metadata!;
+            var authorName = FormatAuthor(meta.Authors.FirstOrDefault());
 
             if (hashIndex.TryGetValue(file.FileHash, out var existing))
             {
-                // Exact same content — skip
                 skipped++;
+                progress?.Report(new ImportProgressEvent(
+                    ImportStatus.Skipped, file.FilePath, existing.Title, null));
                 continue;
             }
 
             if (pathIndex.TryGetValue(file.FilePath, out var byPath))
             {
-                // File at same path but content changed → update metadata
                 byPath.UpdateFromScan(meta.Title, meta.Annotation, meta.Published, file.FileHash);
                 updated++;
+                progress?.Report(new ImportProgressEvent(
+                    ImportStatus.Updated, file.FilePath, meta.Title, authorName));
             }
             else
             {
-                // New book
                 var book = await CreateBookAsync(file, meta, lookupCache, ct);
                 await db.Books.AddAsync(book, ct);
                 await AssignAuthorsAsync(book, meta.Authors, authorCache, ct);
                 added++;
+                progress?.Report(new ImportProgressEvent(
+                    ImportStatus.Added, file.FilePath, meta.Title, authorName));
             }
         }
 
@@ -64,17 +108,18 @@ internal sealed class ImportService(
             removed += await RemoveMissingBooksAsync(directoryPath, options.Recursive, ct);
 
         await db.SaveChangesAsync(ct);
-
         return new ImportReport(added, updated, skipped, removed, failed, errors);
     }
 
-    private async Task<Book> CreateBookAsync(
+    // ── Helpers ───────────────────────────────────────────────────────────
+
+    private static async Task<Book> CreateBookAsync(
         ScannedFile file, BookMetadata meta, LookupCache cache, CancellationToken ct)
     {
-        var genreId    = await cache.GetOrCreateGenreIdAsync(meta.Genre, ct);
-        var langId     = await cache.GetOrCreateLanguageIdAsync(meta.Language, ct);
-        var seriesId   = await cache.GetOrCreateSeriesIdAsync(meta.SeriesName, ct);
-        var format     = Book.DetectFormat(file.FilePath);
+        var genreId  = await cache.GetOrCreateGenreIdAsync(meta.Genre, ct);
+        var langId   = await cache.GetOrCreateLanguageIdAsync(meta.Language, ct);
+        var seriesId = await cache.GetOrCreateSeriesIdAsync(meta.SeriesName, ct);
+        var format   = Book.DetectFormat(file.FilePath);
 
         var book = new Book(
             title:        meta.Title,
@@ -118,7 +163,6 @@ internal sealed class ImportService(
             .Where(b => b.FilePath.StartsWith(directory))
             .ToListAsync(ct);
 
-        // For virtual paths (archive::entry), check that the ARCHIVE exists.
         var missing = booksInDir
             .Where(b => !IsPresent(b.FilePath, presentPaths))
             .ToList();
@@ -127,14 +171,14 @@ internal sealed class ImportService(
         return missing.Count;
     }
 
-    /// <summary>
-    /// Returns true if the book's backing file (or archive) still exists on disk.
-    /// Virtual paths have the form: "path/to/archive.zip::entry/name.fb2"
-    /// </summary>
     private static bool IsPresent(string filePath, HashSet<string> presentPaths)
     {
         var sep = filePath.IndexOf("::", StringComparison.Ordinal);
         var realPath = sep >= 0 ? filePath[..sep] : filePath;
         return presentPaths.Contains(realPath);
     }
+
+    /// <summary>Formats author name as "LastName FirstName", trimming whitespace.</summary>
+    private static string? FormatAuthor(AuthorMetadata? a) =>
+        a is null ? null : $"{a.LastName} {a.FirstName}".Trim();
 }
