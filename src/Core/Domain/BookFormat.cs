@@ -13,7 +13,7 @@ public static class BookFormatExtensions
     {
         // 1. Check if the value is defined in the enum (avoids invalid integer casts like (BookFormat)999)
         // 2. Prevent "Unknown" or default fallback from passing if it's considered an invalid format type
-        if (!Enum.IsDefined(typeof(BookFormat), format) || format == BookFormat.Unknown)
+        if (!Enum.IsDefined(format) || format == BookFormat.Unknown)
         {
             throw new ArgumentOutOfRangeException(nameof(format), format, $"The book format '{format}' is not supported or defined.");
         }
@@ -31,11 +31,13 @@ public static class BookFormatExtensions
             return BookFormat.Unknown;
 
         // Enum.TryParse automatically matches strings to enum values (case-insensitive)
-        if (Enum.TryParse<BookFormat>(formatStr, true, out var result))
-        {
-            return result;
-        }
-
-        return BookFormat.Unknown;
+        return Enum.TryParse<BookFormat>(formatStr, true, out var result) ? result : BookFormat.Unknown;
     }
+    /// <summary>
+    /// A HashSet of supported book file extensions, derived from the BookFormat enum.
+    /// </summary>
+    public static HashSet<string> SupportedExtensions { get; } = Enum.GetValues<BookFormat>()
+        .Where(f => f != BookFormat.Unknown)
+        .Select(f => "." + f.ToString().ToLowerInvariant())
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 }

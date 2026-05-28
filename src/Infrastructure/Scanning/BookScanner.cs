@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Runtime.CompilerServices;
+using LibraryApp.Core.Domain;
 using LibraryApp.Core.Interfaces;
 
 namespace LibraryApp.Infrastructure.Scanning;
@@ -9,9 +10,7 @@ internal sealed class BookScanner(
     IEnumerable<IArchiveScanner>  archiveScanners,
     IFileHasher                   hasher) : IBookScanner
 {
-    private static readonly HashSet<string> BookExtensions =
-        new([".fb2", ".epub", ".mobi", ".azw", ".azw3", ".pdf"],
-            StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> BookExtensions = BookFormatExtensions.SupportedExtensions;
 
     private static readonly HashSet<string> ArchiveExtensions =
         new([".zip"], StringComparer.OrdinalIgnoreCase);
