@@ -5,7 +5,7 @@ namespace LibraryApp.UI.Views;
 
 public partial class ImportWindow : Window
 {
-    public ImportWindow(ImportWindowViewModel vm)
+    public ImportWindow(ImportWindowVm vm)
     {
         InitializeComponent();
         DataContext = vm;
@@ -14,7 +14,7 @@ public partial class ImportWindow : Window
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         // true → main window reloads the author/book list after successful import
-        DialogResult = DataContext is ImportWindowViewModel { Phase: ImportPhase.Done };
+        DialogResult = DataContext is ImportWindowVm { Phase: ImportPhase.Done };
         Close();
     }
 }

@@ -7,6 +7,8 @@ using System.Windows;
 using LibraryApp.Application;
 using LibraryApp.Infrastructure.Data;
 using Serilog;
+using Microsoft.Extensions.Configuration;
+using System.IO;
 
 namespace LibraryApp;
 
@@ -16,8 +18,24 @@ public partial class App
 
     public App()
     {
+        // 1. Build configuration from appsettings.json file
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .Build();
+
+        // 2. Define the static log file path
+        const string logFilePath = "logs/import.log";
+
+        // 3. Delete the previous log file if it exists to ensure a fresh start
+        if (File.Exists(logFilePath))
+        {
+            File.Delete(logFilePath);
+        }
+
+        // 4. Initialize Serilog using JSON configuration settings
         Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
+            .ReadFrom.Configuration(configuration)
             .WriteTo.File(
                 path: "logs/import.log",
                 rollingInterval: RollingInterval.Infinite,
@@ -36,13 +54,13 @@ public partial class App
         services.AddInfrastructure("Data Source=library.db");
         services.AddApplication();
 
-        // Main window
+        // Main window setup
         services.AddTransient<MainWindow>();
-        services.AddTransient<MainWindowViewModel>();
+        services.AddTransient<MainWindowVm>();
 
         // Import window — factory allows creating a fresh instance per import session
         services.AddTransient<ImportWindow>();
-        services.AddTransient<ImportWindowViewModel>();
+        services.AddTransient<ImportWindowVm>();
         services.AddSingleton<Func<ImportWindow>>(sp => sp.GetRequiredService<ImportWindow>);
 
         return services;

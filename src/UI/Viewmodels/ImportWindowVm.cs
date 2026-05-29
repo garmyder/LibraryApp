@@ -1,4 +1,6 @@
-﻿using System.Collections.ObjectModel;
+// src/UI/ViewModels/ImportWindowVm.cs
+
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LibraryApp.Core.Domain;
@@ -12,13 +14,13 @@ namespace LibraryApp.UI.ViewModels;
 
 public enum ImportPhase { Idle, Counting, Importing, Done, Cancelled, Failed }
 
-public sealed partial class ImportWindowViewModel(
+public partial class ImportWindowVm(
     IBookScanner scanner,
     IImportService importService,
-    ILogger<ImportWindowViewModel> logger)
+    ILogger<ImportWindowVm> logger)
     : ObservableObject
 {
-    private CancellationTokenSource?               _cts;
+    private CancellationTokenSource? _cts;
 
     // ── Observable properties ─────────────────────────────────────────────
 
@@ -36,18 +38,29 @@ public sealed partial class ImportWindowViewModel(
     [NotifyCanExecuteChangedFor(nameof(StartImportCommand))]
     private string _folderPath = string.Empty;
 
-    [ObservableProperty] private bool          _recursive     = true;
-    [ObservableProperty] private bool          _removeMissing;
-    [ObservableProperty] private int           _totalBooks;
-    [ObservableProperty] private int           _processedBooks;
-    [ObservableProperty] private int           _countedSoFar;
-    [ObservableProperty] private string        _statusText    = "Select a folder to start import.";
+    [ObservableProperty] private bool _recursive = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsRemoveMissingAvailable))]
+    private ImportMode _importMode = ImportMode.Update;
+
+    /// <summary>
+    /// "Remove missing" checkbox is only relevant in Update mode.
+    /// Automatically disabled in Recreate mode.
+    /// </summary>
+    public bool IsRemoveMissingAvailable => ImportMode == ImportMode.Update;
+
+    [ObservableProperty] private bool   _removeMissing;
+    [ObservableProperty] private int    _totalBooks;
+    [ObservableProperty] private int    _processedBooks;
+    [ObservableProperty] private int    _countedSoFar;
+    [ObservableProperty] private string _statusText = "Select a folder to start import.";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasReport))]
     private ImportReport? _report;
 
-    // ── Computed properties (for XAML visibility bindings) ────────────────
+    // ── Computed properties ───────────────────────────────────────────────
 
     public bool IsBusy          => Phase is ImportPhase.Counting or ImportPhase.Importing;
     public bool IsNotBusy       => !IsBusy;
@@ -59,8 +72,6 @@ public sealed partial class ImportWindowViewModel(
 
     /// <summary>Segments added one by one during import — bound to <see cref="SegmentedProgressBar"/>.</summary>
     public ObservableCollection<ImportSegment> Segments { get; } = [];
-
-    // ── Constructor ───────────────────────────────────────────────────────
 
     // ── Commands ──────────────────────────────────────────────────────────
 
@@ -86,7 +97,10 @@ public sealed partial class ImportWindowViewModel(
 
         try
         {
-            var options = new ScanOptions(Recursive, RemoveMissing);
+            var options = new ScanOptions(
+                Recursive:     Recursive,
+                RemoveMissing: IsRemoveMissingAvailable && RemoveMissing,
+                Mode:          ImportMode);
 
             // ── Phase 1: Counting ─────────────────────────────────────────
             Phase      = ImportPhase.Counting;
@@ -169,3 +183,4 @@ public sealed partial class ImportWindowViewModel(
         return $"Done — {string.Join(", ", parts)}.";
     }
 }
+

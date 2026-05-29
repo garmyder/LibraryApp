@@ -7,7 +7,7 @@ namespace LibraryApp.UI.Views;
 
 public partial class MainWindow : Window
 {
-    public MainWindow(MainWindowViewModel vm)
+    public MainWindow(MainWindowVm vm)
     {
         InitializeComponent();
         var vm1 = vm;
@@ -28,7 +28,7 @@ public partial class MainWindow : Window
 
     private void BooksDataGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel vm) return;
+        if (DataContext is not MainWindowVm vm) return;
 
         // Force commands to check the HasSelection() method
         vm.DeleteSelectedCommand.NotifyCanExecuteChanged();

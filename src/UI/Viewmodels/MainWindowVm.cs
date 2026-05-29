@@ -15,7 +15,7 @@ using MediatR;
 
 namespace LibraryApp.UI.ViewModels;
 
-public sealed partial class MainWindowViewModel : ObservableObject
+public sealed partial class MainWindowVm : ObservableObject
 {
     private readonly IMediator       _mediator;
     private readonly Func<ImportWindow> _importWindowFactory;
@@ -87,7 +87,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         : BuildDetail(SelectedBook);
 
     // ─────────────────────────────────────────────────────────────────────
-    public MainWindowViewModel(IMediator mediator, Func<ImportWindow> importWindowFactory)
+    public MainWindowVm(IMediator mediator, Func<ImportWindow> importWindowFactory)
     {
         _mediator      = mediator;
         _importWindowFactory = importWindowFactory;

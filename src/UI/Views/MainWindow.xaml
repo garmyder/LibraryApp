@@ -8,15 +8,14 @@
         mc:Ignorable="d"
         Title="My Library" Height="600" Width="1000"
         MinHeight="400" MinWidth="600"
-        d:DataContext="{d:DesignInstance Type=vm:MainWindowViewModel, IsDesignTimeCreatable=False}">
+        d:DataContext="{d:DesignInstance Type=vm:MainWindowVm, IsDesignTimeCreatable=False}">
 
     <Window.Resources>
-        <vm:MainWindowViewModelProxy x:Key="MainProxy" ViewModel="{Binding}" />
+        <vm:MainWindowViewModelProxy x:Key="MainProxy" Vm="{Binding}" />
     </Window.Resources>
 
     <DockPanel LastChildFill="True">
 
-        <!-- ═══════════════════════ MAIN MENU ═══════════════════════ -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open Library…"
@@ -43,28 +42,23 @@
             </MenuItem>
         </Menu>
 
-        <!-- ═══════════════════════ STATUS BAR ═══════════════════════ -->
         <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusText}" />
             </StatusBarItem>
             <Separator />
-            <!-- Import progress bar (indeterminate, visible only while importing) -->
             <StatusBarItem>
                 <ProgressBar Width="120" Height="12"
                              IsIndeterminate="True"
-                             Visibility="{Binding IsImporting,
-                                 Converter={StaticResource BoolToVisibility}}" />
+                             Visibility="{Binding IsImporting, Converter={StaticResource BoolToVisibility}}" />
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
                 <TextBlock Text="{Binding ItemCountText}" />
             </StatusBarItem>
         </StatusBar>
 
-        <!-- ═══════════════════════ TAB CONTROL ═══════════════════════ -->
         <TabControl Margin="2">
 
-            <!-- ─────────────── TAB: Authors ─────────────── -->
             <TabItem Header="Authors">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -73,10 +67,8 @@
                         <ColumnDefinition Width="*" MinWidth="200" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- ── LEFT PANEL ── -->
                     <DockPanel Grid.Column="0">
 
-                        <!-- Author filter box -->
                         <TextBox DockPanel.Dock="Top"
                                  Margin="2" Height="26"
                                  Text="{Binding AuthorFilter, UpdateSourceTrigger=PropertyChanged}"
@@ -87,6 +79,16 @@
                                   ItemsSource="{Binding AuthorsView}"
                                   d:ItemsSource="{d:SampleData ItemCount=4, Type=vm:AuthorListItemVm}"
                                   SelectedItem="{Binding SelectedAuthor}">
+
+                            <ListView.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Add Author..." />
+                                    <MenuItem Header="Edit Author..." />
+                                    <Separator />
+                                    <MenuItem Header="Delete Author" />
+                                </ContextMenu>
+                            </ListView.ContextMenu>
+
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn Header="Author" Width="210">
@@ -108,19 +110,15 @@
                         </ListView>
                     </DockPanel>
 
-                    <!-- ── VERTICAL SPLITTER ── -->
                     <GridSplitter Grid.Column="1" Width="5"
                                   HorizontalAlignment="Stretch"
                                   ResizeBehavior="PreviousAndNext"
                                   Background="LightGray" ShowsPreview="True" />
 
-                    <!-- ── RIGHT PANEL ── -->
                     <Grid Grid.Column="2">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*" MinHeight="150" />
-
                             <RowDefinition Height="Auto" />
-
                             <RowDefinition Height="180" MinHeight="60" />
                         </Grid.RowDefinitions>
 
@@ -151,34 +149,37 @@
                             <DataGrid.RowStyle>
                                 <Style TargetType="DataGridRow">
                                     <EventSetter Event="PreviewMouseRightButtonDown" Handler="DataGridRow_PreviewMouseRightButtonDown" />
-
                                     <Setter Property="ContextMenu">
                                         <Setter.Value>
                                             <ContextMenu>
-                                                <MenuItem Header="Rate 1 ★"
-                                                          Command="{Binding ViewModel.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
-                                                          CommandParameter="1" />
-                                                <MenuItem Header="Rate 2 ★★"
-                                                          Command="{Binding ViewModel.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
-                                                          CommandParameter="2" />
-                                                <MenuItem Header="Rate 3 ★★★"
-                                                          Command="{Binding ViewModel.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
-                                                          CommandParameter="3" />
-                                                <MenuItem Header="Rate 4 ★★★★"
-                                                          Command="{Binding ViewModel.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
-                                                          CommandParameter="4" />
-                                                <MenuItem Header="Rate 5 ★★★★★"
-                                                          Command="{Binding ViewModel.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
-                                                          CommandParameter="5" />
-                                                <MenuItem Header="Clear Rating"
-                                                          Command="{Binding ViewModel.ClearRateCommand, Source={StaticResource MainProxy}}" />
+                                                <MenuItem Header="Rating...">
+                                                    <MenuItem Header="Rate 1 ★"
+                                                              Command="{Binding Vm.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
+                                                              CommandParameter="1" />
+                                                    <MenuItem Header="Rate 2 ★★"
+                                                              Command="{Binding Vm.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
+                                                              CommandParameter="2" />
+                                                    <MenuItem Header="Rate 3 ★★★"
+                                                              Command="{Binding Vm.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
+                                                              CommandParameter="3" />
+                                                    <MenuItem Header="Rate 4 ★★★★"
+                                                              Command="{Binding Vm.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
+                                                              CommandParameter="4" />
+                                                    <MenuItem Header="Rate 5 ★★★★★"
+                                                              Command="{Binding Vm.SetRateFromStringCommand, Source={StaticResource MainProxy}}"
+                                                              CommandParameter="5" />
+                                                    <Separator />
+                                                    <MenuItem Header="Clear Rating"
+                                                              Command="{Binding Vm.ClearRateCommand, Source={StaticResource MainProxy}}" />
+                                                </MenuItem>
+
                                                 <Separator />
                                                 <MenuItem Header="Toggle Read/Unread"
-                                                          Command="{Binding ViewModel.ToggleReadCommand, Source={StaticResource MainProxy}}"
+                                                          Command="{Binding Vm.ToggleReadCommand, Source={StaticResource MainProxy}}"
                                                           CommandParameter="{Binding}" />
                                                 <Separator />
                                                 <MenuItem Header="Delete"
-                                                          Command="{Binding ViewModel.DeleteSelectedCommand, Source={StaticResource MainProxy}}"
+                                                          Command="{Binding Vm.DeleteSelectedCommand, Source={StaticResource MainProxy}}"
                                                           CommandParameter="{Binding}" />
                                             </ContextMenu>
                                         </Setter.Value>
@@ -229,8 +230,7 @@
                                                                             <CheckBox.IsChecked>
                                                                                 <MultiBinding Converter="{StaticResource GroupIsChecked}" Mode="OneWay">
                                                                                     <Binding Path="Items" />
-                                                                                    <Binding Path="DataContext.SelectionVersion"
-                                                                                             RelativeSource="{RelativeSource AncestorType=DataGrid}" />
+                                                                                    <Binding Path="DataContext.SelectionVersion" RelativeSource="{RelativeSource AncestorType=DataGrid}" />
                                                                                 </MultiBinding>
                                                                             </CheckBox.IsChecked>
                                                                         </CheckBox>

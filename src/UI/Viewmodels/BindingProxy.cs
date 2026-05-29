@@ -1,22 +1,22 @@
 ﻿using System.Windows;
 
 namespace LibraryApp.UI.ViewModels;
-///summary  A helper class to enable binding to the MainWindowViewModel from XAML when the DataContext is not inherited (e.g. ContextMenu).
+///summary  A helper class to enable binding to the MainWindowVm from XAML when the DataContext is not inherited (e.g. ContextMenu).
 public class MainWindowViewModelProxy : Freezable
 {
     protected override Freezable CreateInstanceCore() => new MainWindowViewModelProxy();
 
-    // We explicitly specify the MainWindowViewModel type instead of object!
-    public static readonly DependencyProperty ViewModelProperty =
+    // We explicitly specify the MainWindowVm type instead of object!
+    public static readonly DependencyProperty VmProperty =
         DependencyProperty.Register(
-            nameof(ViewModel),
-            typeof(MainWindowViewModel),
+            nameof(Vm),
+            typeof(MainWindowVm),
             typeof(MainWindowViewModelProxy),
             new PropertyMetadata(null));
 
-    public MainWindowViewModel ViewModel
+    public MainWindowVm Vm
     {
-        get => (MainWindowViewModel)GetValue(ViewModelProperty);
-        set => SetValue(ViewModelProperty, value);
+        get => (MainWindowVm)GetValue(VmProperty);
+        set => SetValue(VmProperty, value);
     }
 }

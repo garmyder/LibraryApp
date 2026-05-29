@@ -1,4 +1,5 @@
-﻿// src/Application/Common/DTOs/BookDto.cs — виправлений
+﻿// src/Application/Common/DTOs/BookDto.cs
+
 using LibraryApp.Core.Domain;
 
 namespace LibraryApp.Application.Common.DTOs;

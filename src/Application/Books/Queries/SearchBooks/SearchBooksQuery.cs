@@ -1,4 +1,5 @@
 ﻿// src/Application/Books/Queries/SearchBooks/SearchBooksQuery.cs
+
 using LibraryApp.Application.Common.DTOs;
 using MediatR;
 

@@ -4,9 +4,10 @@
              xmlns:converters="clr-namespace:LibraryApp.UI.Converters"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
-        <BooleanToVisibilityConverter        x:Key="BoolToVisibility" />
-        <converters:StarRatingConverter      x:Key="StarRating"      />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <converters:StarRatingConverter x:Key="StarRating" />
         <converters:BoolToStarBrushConverter x:Key="BoolToStarBrush" />
-        <converters:GroupIsCheckedConverter  x:Key="GroupIsChecked"  />
+        <converters:GroupIsCheckedConverter x:Key="GroupIsChecked" />
+        <converters:EnumToBoolConverter x:Key="EnumToBool" />
     </Application.Resources>
 </Application>
